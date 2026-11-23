@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: space-threat-warning-api
+    env: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: space-threats-db
+          property: connectionString
+
+databases:
+  - name: space-threats-db
+    plan: free

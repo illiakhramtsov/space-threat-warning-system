@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: space_threats_db
+    restart: unless-stopped
+    env_file:
+      - config/.env.docker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - space_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: space_threats_web
+    restart: unless-stopped
+    env_file:
+      - config/.env.docker
+    environment:
+      INSTANCE_NAME: web-single-node
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - space_net
+
+volumes:
+  postgres_data:
+
+networks:
+  space_net:
+    driver: bridge

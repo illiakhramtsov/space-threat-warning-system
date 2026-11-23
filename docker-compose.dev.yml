@@ -1,0 +1,17 @@
+# Lab 5 (Additional Task 2): Development mode with Bind Mounts & Hot-Reload
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  web:
+    environment:
+      APP_ENV: sandbox
+      DEBUG: "true"
+      INSTANCE_NAME: web-dev-hotreload
+    volumes:
+      - ./src:/app/src
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/src

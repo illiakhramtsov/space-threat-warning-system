@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Initialize database tables and background EDA consumer on startup."""
-    # Import models so metadata registers all tables before create_all
     from app.models import threat, user  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
@@ -40,31 +39,21 @@ def create_app() -> FastAPI:
 
     @application.middleware("http")
     async def attach_server_identity(request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Server-ID"] = get_settings().INSTANCE_NAME
-        return response
-
-    @application.exception_handler(Exception)
-    async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
-        """Hide internal stack traces when DEBUG=False (Production security)."""
-        logger.exception("Unhandled application error: %s", exc)
-        current_settings = get_settings()
-        if current_settings.DEBUG:
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "detail": "Internal Server Error",
-                    "debug_error": str(exc),
-                    "server_id": current_settings.INSTANCE_NAME,
-                },
-            )
-        return JSONResponse(
-            status_code=500,
-            content={
+        """Attach X-Server-ID header and mask 500 stack traces in Production."""
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            logger.exception("Unhandled application error: %s", exc)
+            current_settings = get_settings()
+            content: dict[str, str] = {
                 "detail": "Internal Server Error",
                 "server_id": current_settings.INSTANCE_NAME,
-            },
-        )
+            }
+            if current_settings.DEBUG:
+                content["debug_error"] = str(exc)
+            response = JSONResponse(status_code=500, content=content)
+        response.headers["X-Server-ID"] = get_settings().INSTANCE_NAME
+        return response
 
     @application.get("/", tags=["System"])
     def root() -> dict:
